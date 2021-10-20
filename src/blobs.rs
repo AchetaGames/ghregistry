@@ -2,6 +2,7 @@ use crate::errors::{Error, Result};
 use crate::Client;
 use reqwest;
 use reqwest::{Method, StatusCode};
+use sha2::Digest;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -78,7 +79,7 @@ impl Client {
         sender: Option<Sender<u64>>,
     ) -> Result<Vec<u8>> {
         let digest = crate::ContentDigest::try_new(digest.to_string())?;
-
+        let mut hash = digest.start_hash();
         let blob = {
             let ep = format!("{}/v2/{}/blobs/{}", self.base_url, name, digest);
             let url = reqwest::Url::parse(&ep)?;
@@ -99,6 +100,7 @@ impl Client {
 
             let mut buffer: [u8; 1024] = [0; 1024];
             let mut body_vec: Vec<u8> = Vec::new();
+
             loop {
                 match res.read(&mut buffer) {
                     Ok(size) => {
@@ -106,6 +108,7 @@ impl Client {
                             if let Some(send) = &sender {
                                 send.send(size as u64).unwrap();
                             };
+                            Digest::update(&mut hash, &buffer[0..size]);
                             body_vec.append(&mut buffer[0..size].to_vec());
                         } else {
                             break;
@@ -141,7 +144,7 @@ impl Client {
             }
         }?;
 
-        digest.try_verify(&blob)?;
+        digest.try_verify_hash(&hash)?;
         Ok(blob.to_vec())
     }
 
@@ -190,6 +193,7 @@ impl Client {
             .unwrap();
         let mut len: usize = 0;
         let mut buffer: [u8; 1024] = [0; 1024];
+        let mut hash = digest.start_hash();
         loop {
             match res.read(&mut buffer) {
                 Ok(size) => {
@@ -198,6 +202,7 @@ impl Client {
                             send.send(size as u64).unwrap();
                         };
                         len += size;
+                        Digest::update(&mut hash, &buffer[0..size]);
                         file.write_all(&buffer[0..size]).unwrap();
                     } else {
                         break;
@@ -215,7 +220,7 @@ impl Client {
         };
         if status.is_success() {
             trace!("Successfully received blob with {} bytes ", len);
-            // digest.try_verify(&blob)?;
+            digest.try_verify_hash(&hash)?;
             Ok(target.clone())
         } else if status.is_client_error() {
             Err(Error::Client {

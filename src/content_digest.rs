@@ -1,5 +1,5 @@
 /// Implements types and methods for content verification
-use sha2::{self, Digest};
+use sha2::{self, Digest, Sha256};
 
 /// ContentDigest stores a digest and its DigestAlgorithm
 #[derive(Clone, Debug, PartialEq)]
@@ -48,11 +48,33 @@ impl ContentDigest {
         })
     }
 
+    pub fn start_hash(&self) -> Sha256 {
+        self.algorithm.new()
+    }
+
     /// try_verify hashes the input slice and compares it with the digest stored in this instance
     ///
     /// Success depends on the result of the comparison
     pub fn try_verify(&self, input: &[u8]) -> std::result::Result<(), ContentDigestError> {
         let hash = self.algorithm.hash(input);
+        let layer_digest = Self::try_new(hash)?;
+
+        if self != &layer_digest {
+            return Err(ContentDigestError::Verify {
+                expected: self.clone(),
+                got: layer_digest.clone(),
+            });
+        }
+
+        trace!("content verification succeeded for '{}'", &layer_digest);
+        Ok(())
+    }
+
+    /// try_verify hashes the input slice and compares it with the digest stored in this instance
+    ///
+    /// Success depends on the result of the comparison
+    pub fn try_verify_hash(&self, input: &Sha256) -> std::result::Result<(), ContentDigestError> {
+        let hash = self.algorithm.finalize(input);
         let layer_digest = Self::try_new(hash)?;
 
         if self != &layer_digest {
@@ -79,6 +101,25 @@ impl DigestAlgorithm {
             DigestAlgorithm::Sha256 => {
                 let hash = sha2::Sha256::digest(input);
                 format!("{}:{:x}", self, hash)
+            }
+        }
+    }
+
+    fn new(&self) -> Sha256 {
+        match self {
+            DigestAlgorithm::Sha256 => sha2::Sha256::new(),
+        }
+    }
+
+    fn finalize(&self, hash: &Sha256) -> String {
+        match self {
+            DigestAlgorithm::Sha256 => {
+                let h = hash.clone().finalize();
+                format!(
+                    "{}:{}",
+                    self,
+                    h.iter().map(|b| format!("{:x}", b)).collect::<String>()
+                )
             }
         }
     }

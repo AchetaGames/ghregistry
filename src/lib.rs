@@ -32,6 +32,8 @@ pub mod manifest;
 mod blobs;
 
 mod content_digest;
+mod render;
+
 pub(crate) use self::content_digest::ContentDigest;
 pub use self::content_digest::ContentDigestError;
 
@@ -93,53 +95,52 @@ impl Client {
         Config::default()
     }
 
-    //     /// Ensure remote registry supports v2 API.
-    //     pub async fn ensure_v2_registry(self) -> Result<Self> {
-    //         if !self.is_v2_supported().await? {
-    //             Err(Error::V2NotSupported)
-    //         } else {
-    //             Ok(self)
-    //         }
-    //     }
-    //
-    //     /// Check whether remote registry supports v2 API.
-    //     pub async fn is_v2_supported(&self) -> Result<bool> {
-    //         match self.is_v2_supported_and_authorized().await {
-    //             Ok((v2_supported, _)) => Ok(v2_supported),
-    //             Err(crate::Error::UnexpectedHttpStatus(_)) => Ok(false),
-    //             Err(e) => Err(e),
-    //         }
-    //     }
-    //
-    //     /// Check whether remote registry supports v2 API and `self` is authorized.
-    //     /// Authorized means to successfully GET the `/v2` endpoint on the remote registry.
-    //     pub async fn is_v2_supported_and_authorized(&self) -> Result<(bool, bool)> {
-    //         let api_header = "Docker-Distribution-API-Version";
-    //         let api_version = "registry/2.0";
-    //
-    //         // GET request to bare v2 endpoint.
-    //         let v2_endpoint = format!("{}/v2/", self.base_url);
-    //         let request = reqwest::Url::parse(&v2_endpoint).map(|url| {
-    //             trace!("GET {:?}", url);
-    //             self.build_reqwest(Method::GET, url)
-    //         })?;
-    //
-    //         let response = request.send().await?;
-    //
-    //         let b = match (response.status(), response.headers().get(api_header)) {
-    //             (StatusCode::OK, Some(x)) => Ok((x == api_version, true)),
-    //             (StatusCode::UNAUTHORIZED, Some(x)) => Ok((x == api_version, false)),
-    //             (s, v) => {
-    //                 trace!("Got unexpected status {}, header version {:?}", s, v);
-    //                 return Err(crate::Error::UnexpectedHttpStatus(s));
-    //             }
-    //         };
-    //
-    //         b
-    //     }
-    //
-    /// Takes reqwest's async RequestBuilder and injects an authentication header if a token is present
+    /// Ensure remote registry supports v2 API.
+    pub fn ensure_v2_registry(self) -> Result<Self> {
+        if !self.is_v2_supported()? {
+            Err(Error::V2NotSupported)
+        } else {
+            Ok(self)
+        }
+    }
 
+    /// Check whether remote registry supports v2 API.
+    pub fn is_v2_supported(&self) -> Result<bool> {
+        match self.is_v2_supported_and_authorized() {
+            Ok((v2_supported, _)) => Ok(v2_supported),
+            Err(crate::Error::UnexpectedHttpStatus(_)) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Check whether remote registry supports v2 API and `self` is authorized.
+    /// Authorized means to successfully GET the `/v2` endpoint on the remote registry.
+    pub fn is_v2_supported_and_authorized(&self) -> Result<(bool, bool)> {
+        let api_header = "Docker-Distribution-API-Version";
+        let api_version = "registry/2.0";
+
+        // GET request to bare v2 endpoint.
+        let v2_endpoint = format!("{}/v2/", self.base_url);
+        let request = reqwest::Url::parse(&v2_endpoint).map(|url| {
+            trace!("GET {:?}", url);
+            self.build_reqwest(reqwest::Method::GET, url)
+        })?;
+
+        let response = request.send()?;
+
+        let b = match (response.status(), response.headers().get(api_header)) {
+            (reqwest::StatusCode::OK, Some(x)) => Ok((x == api_version, true)),
+            (reqwest::StatusCode::UNAUTHORIZED, Some(x)) => Ok((x == api_version, false)),
+            (s, v) => {
+                trace!("Got unexpected status {}, header version {:?}", s, v);
+                return Err(crate::Error::UnexpectedHttpStatus(s));
+            }
+        };
+
+        b
+    }
+
+    /// Takes reqwest's async RequestBuilder and injects an authentication header if a token is present
     fn build_reqwest(
         &self,
         method: ::reqwest::Method,
