@@ -32,7 +32,7 @@ pub mod manifest;
 mod blobs;
 
 mod content_digest;
-mod render;
+pub mod render;
 
 pub(crate) use self::content_digest::ContentDigest;
 pub use self::content_digest::ContentDigestError;
