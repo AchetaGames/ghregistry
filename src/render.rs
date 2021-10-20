@@ -4,6 +4,7 @@
 // https://github.com/moby/moby/blob/v17.05.0-ce/image/spec/v1.md
 
 use libflate::gzip;
+use std::io::{BufReader, Read};
 use std::path::{Path, StripPrefixError};
 use std::{fs, path};
 use tar;
@@ -26,14 +27,38 @@ pub fn unpack(layers: &[Vec<u8>], target_dir: &path::Path) -> Result<(), RenderE
     }
     for l in layers {
         // Unpack layers
-        let gz_dec = gzip::Decoder::new(l.as_slice())?;
+        let mut input = std::io::BufReader::new(l.as_slice());
+        let gz_dec = gzip::Decoder::new(&mut input)?;
         let mut archive = tar::Archive::new(gz_dec);
         archive.set_preserve_permissions(true);
         archive.set_unpack_xattrs(true);
         archive.unpack(target_dir)?;
 
         // Clean whiteouts
-        clean_whiteouts(target_dir, l)?;
+        clean_whiteouts(target_dir, input)?;
+    }
+    Ok(())
+}
+
+pub fn unpack_files(files: Vec<String>, target_dir: &path::Path) -> Result<(), RenderError> {
+    if !target_dir.is_absolute() || !target_dir.exists() || !target_dir.is_dir() {
+        return Err(RenderError::WrongTargetPath(target_dir.to_path_buf()));
+    }
+    for file in files {
+        // Unpack layers
+        let path = Path::new(&file);
+        if let Ok(f) = std::fs::OpenOptions::new().read(true).open(path) {
+            let mut input = std::io::BufReader::new(f);
+
+            let gz_dec = gzip::Decoder::new(&mut input)?;
+            let mut archive = tar::Archive::new(gz_dec);
+            archive.set_preserve_permissions(true);
+            archive.set_unpack_xattrs(true);
+            archive.unpack(target_dir)?;
+
+            // Clean whiteouts
+            clean_whiteouts(target_dir, input)?;
+        };
     }
     Ok(())
 }
@@ -48,7 +73,8 @@ pub fn unpack_partial(
     }
     for l in layers {
         // Unpack layers
-        let gz_dec = gzip::Decoder::new(l.as_slice())?;
+        let mut input = std::io::BufReader::new(l.as_slice());
+        let gz_dec = gzip::Decoder::new(&mut input)?;
         let mut archive = tar::Archive::new(gz_dec);
         archive.set_preserve_permissions(true);
         archive.set_unpack_xattrs(true);
@@ -63,13 +89,13 @@ pub fn unpack_partial(
         }
 
         // Clean whiteouts
-        clean_whiteouts(target_dir, l)?;
+        clean_whiteouts(target_dir, input)?;
     }
     Ok(())
 }
 
-fn clean_whiteouts(target_dir: &Path, l: &Vec<u8>) -> Result<(), RenderError> {
-    let gz_dec = gzip::Decoder::new(l.as_slice())?;
+fn clean_whiteouts<R: Read>(target_dir: &Path, l: BufReader<R>) -> Result<(), RenderError> {
+    let gz_dec = gzip::Decoder::new(l)?;
     let mut archive = tar::Archive::new(gz_dec);
     for entry in archive.entries()? {
         let file = entry?;
