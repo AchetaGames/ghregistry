@@ -256,7 +256,7 @@ fn build_accept_headers(registry: &str) -> header::HeaderMap {
         // https://tools.ietf.org/html/rfc7231#section-5.3.2
         (mediatypes::MediaTypes::ManifestV2S2, 0.5),
         (mediatypes::MediaTypes::ManifestV2S1Signed, 0.4),
-        // TODO(steveeJ): uncomment this when all the Manifest methods work for it
+        // TODO: uncomment this when all the Manifest methods work for it
         // mediatypes::MediaTypes::ManifestList,
     ];
 
@@ -332,7 +332,7 @@ impl Manifest {
                 }
                 Ok(m.get_layers())
             }
-            // Manifest::ML(_) => TODO(steveeJ),
+            // Manifest::ML(_) => TODO,
             _ => Err(ManifestError::LayerDigestsUnsupported(format!("{:?}", self)).into()),
         }
     }
@@ -341,7 +341,7 @@ impl Manifest {
     pub fn download_size(&self) -> Result<u64> {
         match self {
             Manifest::S2(m) => Ok(m.size()),
-            // Manifest::ML(_) => TODO(steveeJ),
+            // Manifest::ML(_) => TODO,
             _ => Err(ManifestError::LayerSizeUnsupported(format!("{:?}", self)).into()),
         }
     }
@@ -351,7 +351,7 @@ impl Manifest {
         match self {
             Manifest::S1Signed(m) => Ok([m.architecture.clone()].to_vec()),
             Manifest::S2(m) => Ok([m.architecture()].to_vec()),
-            // Manifest::ML(_) => TODO(steveeJ),
+            // Manifest::ML(_) => TODO,
             _ => Err(ManifestError::ArchitectureNotSupported(format!("{:?}", self)).into()),
         }
     }

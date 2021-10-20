@@ -18,7 +18,7 @@ pub enum MediaTypes {
         serialize = "application/vnd.docker.distribution.manifest.v1+prettyjws",
         to_string =     "application/vnd.docker.distribution.manifest.v1+prettyjws",
 
-        // TODO(steveeJ) find a generic way to handle this form
+        // TODO: find a generic way to handle this form
         serialize = "application/vnd.docker.distribution.manifest.v1+prettyjws; charset=utf-8",
     )]
     #[strum(props(Sub = "vnd.docker.distribution.manifest.v1+prettyjws"))]
@@ -46,7 +46,7 @@ pub enum MediaTypes {
 }
 
 impl MediaTypes {
-    // TODO(lucab): proper error types
+    // TODO: proper error types
     pub fn from_mime(mtype: &mime::Mime) -> Result<Self> {
         match (mtype.type_(), mtype.subtype(), mtype.suffix()) {
             (mime::APPLICATION, mime::JSON, _) => Ok(MediaTypes::ApplicationJson),

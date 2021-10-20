@@ -73,7 +73,7 @@ impl Client {
             Some(ref ct) => ct.to_str()?.starts_with("application/json"),
         };
         if !ok {
-            // TODO:(steveeJ): Make this an error once Satellite
+            // TODO: Make this an error once Satellite
             // returns the content type correctly
             debug!("get_tags: wrong content type '{:?}', ignoring...", ct_hdr);
         }
@@ -91,7 +91,7 @@ impl Client {
 ///
 /// Format is described at https://docs.docker.com/registry/spec/api/#listing-image-tags#pagination.
 fn parse_link(hdr: Option<&header::HeaderValue>) -> Option<String> {
-    // TODO(lucab): this a brittle string-matching parser. Investigate
+    // TODO: this a brittle string-matching parser. Investigate
     // whether there is a a common library to do this, in the future.
 
     // Raw Header value bytes.

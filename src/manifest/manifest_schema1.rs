@@ -18,7 +18,7 @@ pub struct ManifestSchema1Signed {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Signature {
-    // TODO(lucab): switch to jsonwebtokens crate
+    // TODO: switch to jsonwebtokens crate
     // https://github.com/Keats/rust-jwt/pull/23
     header: serde_json::Value,
     signature: String,
