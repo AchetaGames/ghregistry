@@ -4,7 +4,7 @@
 // https://github.com/moby/moby/blob/v17.05.0-ce/image/spec/v1.md
 
 use libflate::gzip;
-use std::path::Path;
+use std::path::{Path, StripPrefixError};
 use std::{fs, path};
 use tar;
 
@@ -54,7 +54,12 @@ pub fn unpack_partial(
         archive.set_unpack_xattrs(true);
         for file in archive.entries().unwrap() {
             let mut f = file.unwrap();
-            if f.path().unwrap().starts_with(&filter) {}
+            match f.path().unwrap().strip_prefix(&filter) {
+                Ok(path) => {}
+                Err(_) => {
+                    // Not in the prefix
+                }
+            }
         }
 
         // Clean whiteouts

@@ -118,7 +118,7 @@ impl DigestAlgorithm {
                 format!(
                     "{}:{}",
                     self,
-                    h.iter().map(|b| format!("{:x}", b)).collect::<String>()
+                    h.iter().map(|b| format!("{:02x}", b)).collect::<String>()
                 )
             }
         }
