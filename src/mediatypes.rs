@@ -16,8 +16,6 @@ pub enum MediaTypes {
     /// Signed manifest, version 2 schema 1.
     #[strum(
         serialize = "application/vnd.docker.distribution.manifest.v1+prettyjws",
-        to_string =     "application/vnd.docker.distribution.manifest.v1+prettyjws",
-
         // TODO: find a generic way to handle this form
         serialize = "application/vnd.docker.distribution.manifest.v1+prettyjws; charset=utf-8",
     )]
@@ -62,16 +60,17 @@ impl MediaTypes {
                     }
                     ("vnd.docker.image.rootfs.diff.tar.gzip", _) => Ok(MediaTypes::ImageLayerTgz),
                     ("vnd.docker.container.image.v1", "json") => Ok(MediaTypes::ContainerConfigV1),
-                    _ => return Err(crate::Error::UnknownMimeType(mtype.clone())),
+                    _ => Err(crate::Error::UnknownMimeType(mtype.clone())),
                 }
             }
-            _ => return Err(crate::Error::UnknownMimeType(mtype.clone())),
+            _ => Err(crate::Error::UnknownMimeType(mtype.clone())),
         }
     }
+
     pub fn to_mime(&self) -> mime::Mime {
         match self {
             &MediaTypes::ApplicationJson => Ok(mime::APPLICATION_JSON),
-            ref m => {
+            m => {
                 if let Some(s) = m.get_str("Sub") {
                     ("application/".to_string() + s).parse()
                 } else {

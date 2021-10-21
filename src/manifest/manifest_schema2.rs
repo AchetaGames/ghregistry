@@ -96,9 +96,7 @@ impl ManifestSchema2Spec {
         let url = {
             let ep = format!(
                 "{}/v2/{}/blobs/{}",
-                client.base_url.clone(),
-                repo,
-                self.config.digest
+                client.base_url, repo, self.config.digest
             );
             reqwest::Url::parse(&ep)?
         };
@@ -144,6 +142,6 @@ impl ManifestSchema2 {
         for l in self.manifest_spec.layers.iter() {
             result += l.size;
         }
-        return result;
+        result
     }
 }

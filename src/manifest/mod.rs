@@ -77,6 +77,7 @@ impl Client {
             )),
             mediatypes::MediaTypes::ManifestV2S2 => {
                 let m = res.json::<ManifestSchema2Spec>()?;
+                println!("Manifest resp: {:?}", m);
                 Ok((
                     m.fetch_config_blob(client_spare0, name.to_string())
                         .map(Manifest::S2)?,
@@ -98,7 +99,7 @@ impl Client {
             name,
             reference
         );
-        reqwest::Url::parse(&ep).map_err(|e| Error::from(e))
+        reqwest::Url::parse(&ep).map_err(Error::from)
     }
 
     /// Fetch content digest for a particular tag.
@@ -147,7 +148,7 @@ impl Client {
                 let m = mediatypes::MediaTypes::ManifestV2S2.to_mime();
                 vec![m]
             }
-            Some(ref v) => to_mimes(v),
+            Some(v) => to_mimes(v),
         };
 
         let mut accept_headers = header::HeaderMap::with_capacity(accept_types.len());
@@ -160,7 +161,7 @@ impl Client {
         trace!("HEAD {:?}", url);
 
         let r = self
-            .build_reqwest(reqwest::Method::HEAD, url.clone())
+            .build_reqwest(reqwest::Method::HEAD, url)
             .headers(accept_headers)
             .send()
             .map_err(Error::from)?;
@@ -179,7 +180,7 @@ impl Client {
             | StatusCode::FOUND
             | StatusCode::OK => {
                 let media_type =
-                    evaluate_media_type(r.headers().get(header::CONTENT_TYPE), &r.url())?;
+                    evaluate_media_type(r.headers().get(header::CONTENT_TYPE), r.url())?;
                 trace!("Manifest media-type: {:?}", media_type);
                 Ok(Some(media_type))
             }

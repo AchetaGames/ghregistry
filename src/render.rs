@@ -5,7 +5,7 @@
 
 use libflate::gzip;
 use std::io::{BufReader, Read};
-use std::path::{Path, StripPrefixError};
+use std::path::Path;
 use std::{fs, path};
 use tar;
 
@@ -84,16 +84,12 @@ pub fn unpack_partial_files(
             for file in archive.entries().unwrap() {
                 let mut t = target_dir.to_path_buf();
                 let mut f = file.unwrap();
-                match f.path().unwrap().strip_prefix(filter) {
-                    Ok(path) => {
-                        t.push(path);
-                        std::fs::create_dir_all(t.parent().unwrap());
-                        f.unpack(&t);
-                        println!("Unpacking to: {:?}", t);
-                    }
-                    Err(_) => {
-                        // Not in the prefix
-                    }
+                if let Ok(path) = f.path().unwrap().strip_prefix(filter) {
+                    t.push(path);
+                    std::fs::create_dir_all(t.parent().unwrap()).unwrap_or_default();
+                    if let Err(e) = f.unpack(&t) {
+                        error!("Unable to unpack: {}", e);
+                    };
                 }
             }
 

@@ -235,9 +235,7 @@ impl Client {
             reqwest::Url::parse(&ep)?
         };
 
-        let r = self
-            .build_reqwest(reqwest::Method::GET, url.clone())
-            .send()?;
+        let r = self.build_reqwest(reqwest::Method::GET, url).send()?;
 
         trace!("GET '{}' status: {:?}", r.url(), r.status());
         r.headers()
