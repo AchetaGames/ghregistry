@@ -1,10 +1,12 @@
 use crate::errors::{Error, Result};
-use crate::Client;
+use crate::{Client, ContentDigestError};
+use http::HeaderValue;
 use reqwest;
 use reqwest::{Method, StatusCode};
 use sha2::Digest;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 
@@ -152,20 +154,64 @@ impl Client {
     pub fn get_blob_with_progress_file(
         &self,
         name: &str,
-        hash: &str,
+        digest_hash: &str,
+        size: Option<u64>,
         sender: Option<Sender<u64>>,
         target_dir: &Path,
     ) -> Result<PathBuf> {
-        let digest = crate::ContentDigest::try_new(hash.to_string())?;
+        let digest = crate::ContentDigest::try_new(digest_hash.to_string())?;
         let mut target = target_dir.to_path_buf();
         std::fs::create_dir_all(&target).unwrap();
-        target.push(hash);
+        target.push(digest_hash);
         trace!("Going to downloaad to: {:?}", target);
 
         let ep = format!("{}/v2/{}/blobs/{}", self.base_url, name, digest);
         let url = reqwest::Url::parse(&ep)?;
+        let mut hash = digest.start_hash();
 
-        let mut res = match self.build_reqwest(Method::GET, url.clone()).send() {
+        let client =
+        // Continue previous download
+        if target.exists() {
+            if let Some(s) = size {
+                let metadata =
+                    std::fs::metadata(&target.as_path()).expect("unable to read metadata");
+                if metadata.size() == s {
+                    let mut hasher = sha2::Sha256::new();
+                    if let Ok(mut f) = File::open(&target) {
+                        std::io::copy(&mut f, &mut hasher);
+                        match digest.try_verify_hash(&hasher) {
+                            Ok(_) => {
+                                println!("Already downloaded {}", digest_hash);
+                                if let Some(send) = &sender {
+                                    send.send(s as u64).unwrap();
+                                };
+                                return Ok(target);
+                            }
+                            Err(e) => {
+                                println!("Hashes do not match {}", e);
+                                std::fs::remove_file(&target);
+                            }
+                        }
+                    }
+                    self.build_reqwest(Method::GET, url.clone())
+                } else {
+                    println!("Trying to resume {}", digest_hash);
+                    if let Ok(mut f) = File::open(&target) {
+                        std::io::copy(&mut f, &mut hash);
+                    }
+                    self.build_reqwest(Method::GET, url.clone()).header(
+                        reqwest::header::RANGE,
+                        format! {"bytes={}-{}", metadata.size()+1, s},
+                    )
+                }
+            } else {
+                self.build_reqwest(Method::GET, url.clone())
+            }
+        } else {
+            self.build_reqwest(Method::GET, url.clone())
+        };
+
+        let mut res = match client.send() {
             Ok(res) => res,
             Err(e) => {
                 println!("Unable to create request: {:?}", e);
@@ -185,15 +231,43 @@ impl Client {
 
         let status = res.status();
 
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(&target)
-            .unwrap();
+        let mut file = match res.headers().get("Accept-Ranges") {
+            None => {
+                println!("Truncating file 1");
+                OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(&target)
+                    .unwrap()
+            }
+            Some(v) => {
+                if v.eq("none") {
+                    println!("Truncating file 2");
+                    OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .create(true)
+                        .open(&target)
+                        .unwrap()
+                } else {
+                    println!("Appending to file");
+                    let metadata =
+                        std::fs::metadata(&target.as_path()).expect("unable to read metadata");
+                    if let Some(send) = &sender {
+                        send.send(metadata.size()).unwrap();
+                    };
+                    OpenOptions::new()
+                        .append(true)
+                        .truncate(false)
+                        .create(true)
+                        .open(&target)
+                        .unwrap()
+                }
+            }
+        };
         let mut len: usize = 0;
         let mut buffer: [u8; 1024] = [0; 1024];
-        let mut hash = digest.start_hash();
         loop {
             match res.read(&mut buffer) {
                 Ok(size) => {

@@ -125,11 +125,11 @@ impl ManifestSchema2 {
     /// List digests of all layers referenced by this manifest.
     ///
     /// The returned layers list is ordered starting with the base image first.
-    pub fn get_layers(&self) -> Vec<String> {
+    pub fn get_layers(&self) -> Vec<(String, u64)> {
         self.manifest_spec
             .layers
             .iter()
-            .map(|l| l.digest.clone())
+            .map(|l| (l.digest.clone(), l.size))
             .collect()
     }
 

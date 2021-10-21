@@ -63,33 +63,43 @@ pub fn unpack_files(files: Vec<String>, target_dir: &path::Path) -> Result<(), R
     Ok(())
 }
 
-pub fn unpack_partial(
-    layers: &[Vec<u8>],
+pub fn unpack_partial_files(
+    files: Vec<String>,
     target_dir: &path::Path,
-    filter: String,
+    filter: &str,
 ) -> Result<(), RenderError> {
     if !target_dir.is_absolute() || !target_dir.exists() || !target_dir.is_dir() {
         return Err(RenderError::WrongTargetPath(target_dir.to_path_buf()));
     }
-    for l in layers {
+    for f in files {
         // Unpack layers
-        let mut input = std::io::BufReader::new(l.as_slice());
-        let gz_dec = gzip::Decoder::new(&mut input)?;
-        let mut archive = tar::Archive::new(gz_dec);
-        archive.set_preserve_permissions(true);
-        archive.set_unpack_xattrs(true);
-        for file in archive.entries().unwrap() {
-            let mut f = file.unwrap();
-            match f.path().unwrap().strip_prefix(&filter) {
-                Ok(path) => {}
-                Err(_) => {
-                    // Not in the prefix
+        let path = Path::new(&f);
+        if let Ok(f) = std::fs::OpenOptions::new().read(true).open(path) {
+            let mut input = std::io::BufReader::new(f);
+
+            let gz_dec = gzip::Decoder::new(&mut input)?;
+            let mut archive = tar::Archive::new(gz_dec);
+            archive.set_preserve_permissions(true);
+            archive.set_unpack_xattrs(true);
+            for file in archive.entries().unwrap() {
+                let mut t = target_dir.to_path_buf();
+                let mut f = file.unwrap();
+                match f.path().unwrap().strip_prefix(filter) {
+                    Ok(path) => {
+                        t.push(path);
+                        std::fs::create_dir_all(t.parent().unwrap());
+                        f.unpack(&t);
+                        println!("Unpacking to: {:?}", t);
+                    }
+                    Err(_) => {
+                        // Not in the prefix
+                    }
                 }
             }
-        }
 
-        // Clean whiteouts
-        clean_whiteouts(target_dir, input)?;
+            // Clean whiteouts
+            clean_whiteouts(target_dir, input)?;
+        }
     }
     Ok(())
 }

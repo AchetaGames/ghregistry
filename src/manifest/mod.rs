@@ -310,7 +310,7 @@ impl Manifest {
     /// List digests of all layers referenced by this manifest, if available.
     ///
     /// The returned layers list is ordered starting with the base image first.
-    pub fn layers_digests(&self, architecture: Option<&str>) -> Result<Vec<String>> {
+    pub fn layers_digests(&self, architecture: Option<&str>) -> Result<Vec<(String, u64)>> {
         match (self, self.architectures(), architecture) {
             (Manifest::S1Signed(m), _, None) => Ok(m.get_layers()),
             (Manifest::S2(m), _, None) => Ok(m.get_layers()),
