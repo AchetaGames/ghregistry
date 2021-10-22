@@ -244,17 +244,25 @@ impl Client {
                         .open(&target)
                         .unwrap()
                 } else {
-                    let metadata =
-                        std::fs::metadata(&target.as_path()).expect("unable to read metadata");
-                    if let Some(send) = &sender {
-                        send.send(metadata.size()).unwrap();
-                    };
-                    OpenOptions::new()
-                        .append(true)
-                        .truncate(false)
-                        .create(true)
-                        .open(&target)
-                        .unwrap()
+                    match std::fs::metadata(&target.as_path()) {
+                        Ok(metadata) => {
+                            if let Some(send) = &sender {
+                                send.send(metadata.size()).unwrap();
+                            };
+                            OpenOptions::new()
+                                .append(true)
+                                .truncate(false)
+                                .create(true)
+                                .open(&target)
+                                .unwrap()
+                        }
+                        Err(_) => OpenOptions::new()
+                            .write(true)
+                            .truncate(true)
+                            .create(true)
+                            .open(&target)
+                            .unwrap(),
+                    }
                 }
             }
         };
