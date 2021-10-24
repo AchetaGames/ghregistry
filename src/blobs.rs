@@ -198,7 +198,7 @@ impl Client {
                     }
                     self.build_reqwest(Method::GET, url).header(
                         reqwest::header::RANGE,
-                        format! {"bytes={}-{}", metadata.size()+1, s},
+                        format! {"bytes={}-{}", metadata.size(), s},
                     )
                 }
             } else {
