@@ -35,7 +35,7 @@ pub fn unpack(layers: &[Vec<u8>], target_dir: &path::Path) -> Result<(), RenderE
         archive.unpack(target_dir)?;
 
         // Clean whiteouts
-        clean_whiteouts(target_dir, input)?;
+        clean_whiteouts(target_dir, std::io::BufReader::new(l.as_slice()))?;
     }
     Ok(())
 }
@@ -48,7 +48,7 @@ pub fn unpack_files(files: Vec<String>, target_dir: &path::Path) -> Result<(), R
         // Unpack layers
         let path = Path::new(&file);
         if let Ok(f) = std::fs::OpenOptions::new().read(true).open(path) {
-            let mut input = std::io::BufReader::new(f);
+            let mut input = std::io::BufReader::new(&f);
 
             let gz_dec = gzip::Decoder::new(&mut input)?;
             let mut archive = tar::Archive::new(gz_dec);
@@ -57,7 +57,7 @@ pub fn unpack_files(files: Vec<String>, target_dir: &path::Path) -> Result<(), R
             archive.unpack(target_dir)?;
 
             // Clean whiteouts
-            clean_whiteouts(target_dir, input)?;
+            clean_whiteouts(target_dir, std::io::BufReader::new(f))?;
         };
     }
     Ok(())
@@ -75,7 +75,8 @@ pub fn unpack_partial_files(
         // Unpack layers
         let path = Path::new(&f);
         if let Ok(f) = std::fs::OpenOptions::new().read(true).open(path) {
-            let mut input = std::io::BufReader::new(f);
+            println!("Deflating {:?}", f);
+            let mut input = std::io::BufReader::new(&f);
 
             let gz_dec = gzip::Decoder::new(&mut input)?;
             let mut archive = tar::Archive::new(gz_dec);
@@ -85,6 +86,8 @@ pub fn unpack_partial_files(
                 let mut t = target_dir.to_path_buf();
                 let mut f = file.unwrap();
                 if let Ok(path) = f.path().unwrap().strip_prefix(filter) {
+                    let parent = path.parent().unwrap_or_else(|| path::Path::new("/"));
+                    clean_whiteouts_in_path(target_dir, path, parent)?;
                     t.push(path);
                     std::fs::create_dir_all(t.parent().unwrap()).unwrap_or_default();
                     if let Err(e) = f.unpack(&t) {
@@ -92,38 +95,45 @@ pub fn unpack_partial_files(
                     };
                 }
             }
-
-            // Clean whiteouts
-            clean_whiteouts(target_dir, input)?;
         }
     }
     Ok(())
 }
 
 fn clean_whiteouts<R: Read>(target_dir: &Path, l: BufReader<R>) -> Result<(), RenderError> {
+    println!("Cleaning");
     let gz_dec = gzip::Decoder::new(l)?;
     let mut archive = tar::Archive::new(gz_dec);
     for entry in archive.entries()? {
         let file = entry?;
         let path = file.path()?;
         let parent = path.parent().unwrap_or_else(|| path::Path::new("/"));
-        if let Some(fname) = path.file_name() {
-            let wh_name = fname.to_string_lossy();
-            if wh_name == ".wh..wh..opq" {
-                //TODO: opaque whiteout, dir removal
-            } else if wh_name.starts_with(".wh.") {
-                let rel_parent = path::PathBuf::from("./".to_string() + &parent.to_string_lossy());
+        clean_whiteouts_in_path(target_dir, &*path, &parent)?;
+    }
+    Ok(())
+}
 
-                // Remove real file behind whiteout
-                let real_name = wh_name.trim_start_matches(".wh.");
-                let abs_real_path = target_dir.join(&rel_parent).join(real_name);
-                fs::remove_dir_all(abs_real_path)?;
+fn clean_whiteouts_in_path(
+    target_dir: &Path,
+    path: &Path,
+    parent: &Path,
+) -> Result<(), RenderError> {
+    if let Some(fname) = path.file_name() {
+        let wh_name = fname.to_string_lossy();
+        if wh_name == ".wh..wh..opq" {
+            //TODO: opaque whiteout, dir removal
+        } else if wh_name.starts_with(".wh.") {
+            let rel_parent = path::PathBuf::from("./".to_string() + &parent.to_string_lossy());
 
-                // Remove whiteout place-holder
-                let abs_wh_path = target_dir.join(&rel_parent).join(fname);
-                fs::remove_dir_all(abs_wh_path)?;
-            };
-        }
+            // Remove real file behind whiteout
+            let real_name = wh_name.trim_start_matches(".wh.");
+            let abs_real_path = target_dir.join(&rel_parent).join(real_name);
+            fs::remove_dir_all(abs_real_path)?;
+
+            // Remove whiteout place-holder
+            let abs_wh_path = target_dir.join(&rel_parent).join(fname);
+            fs::remove_dir_all(abs_wh_path)?;
+        };
     }
     Ok(())
 }
