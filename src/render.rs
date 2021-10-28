@@ -75,7 +75,6 @@ pub fn unpack_partial_files(
         // Unpack layers
         let path = Path::new(&f);
         if let Ok(f) = std::fs::OpenOptions::new().read(true).open(path) {
-            println!("Deflating {:?}", f);
             let mut input = std::io::BufReader::new(&f);
 
             let gz_dec = gzip::Decoder::new(&mut input)?;
@@ -101,14 +100,13 @@ pub fn unpack_partial_files(
 }
 
 fn clean_whiteouts<R: Read>(target_dir: &Path, l: BufReader<R>) -> Result<(), RenderError> {
-    println!("Cleaning");
     let gz_dec = gzip::Decoder::new(l)?;
     let mut archive = tar::Archive::new(gz_dec);
     for entry in archive.entries()? {
         let file = entry?;
         let path = file.path()?;
         let parent = path.parent().unwrap_or_else(|| path::Path::new("/"));
-        clean_whiteouts_in_path(target_dir, &*path, &parent)?;
+        clean_whiteouts_in_path(target_dir, &*path, parent)?;
     }
     Ok(())
 }

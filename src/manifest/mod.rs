@@ -77,7 +77,6 @@ impl Client {
             )),
             mediatypes::MediaTypes::ManifestV2S2 => {
                 let m = res.json::<ManifestSchema2Spec>()?;
-                println!("Manifest resp: {:?}", m);
                 Ok((
                     m.fetch_config_blob(client_spare0, name.to_string())
                         .map(Manifest::S2)?,
