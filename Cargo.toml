@@ -3,6 +3,7 @@ name = "ghregistry"
 version = "0.1.0"
 authors = ["Milan Šťastný <milan@acheta.games>"]
 description = "A pure-Rust synchronous library for Github Docker Registry API"
+repository = "https://github.com/AchetaGames/ghregistry"
 license = "MIT"
 edition = "2018"
 
