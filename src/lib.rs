@@ -11,7 +11,7 @@ extern crate strum_macros;
 pub mod mediatypes;
 
 mod config;
-mod errors;
+pub mod errors;
 
 use errors::{Error, Result};
 use serde::{Deserialize, Serialize};
