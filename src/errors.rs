@@ -13,6 +13,8 @@ pub enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("URI parse error")]
     Uri(#[from] url::ParseError),
+    #[error("IO error")]
+    IO(#[from] std::io::Error),
     #[error("input is not UTF-8")]
     Utf8Parse(#[from] std::string::FromUtf8Error),
     #[error("strum error")]
