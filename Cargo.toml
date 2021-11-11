@@ -1,8 +1,9 @@
 [package]
 name = "ghregistry"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Milan Šťastný <milan@acheta.games>"]
 description = "A pure-Rust synchronous library for Github Docker Registry API"
+repository = "https://github.com/AchetaGames/ghregistry2"
 license = "MIT"
 edition = "2018"
 
