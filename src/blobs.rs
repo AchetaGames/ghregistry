@@ -277,7 +277,7 @@ impl Client {
                         };
                         len += size;
                         Digest::update(&mut hash, &buffer[0..size]);
-                        file.write_all(&buffer[0..size]).unwrap();
+                        file.write_all(&buffer[0..size])?;
                     } else {
                         break;
                     }
