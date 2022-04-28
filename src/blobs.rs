@@ -106,7 +106,9 @@ impl Client {
                     Ok(size) => {
                         if size > 0 {
                             if let Some(send) = &sender {
-                                send.send(size as u64).unwrap();
+                                if let Err(e) = send.send(size as u64) {
+                                    return Err(e.into());
+                                };
                             };
                             Digest::update(&mut hash, &buffer[0..size]);
                             body_vec.append(&mut buffer[0..size].to_vec());
@@ -181,7 +183,9 @@ impl Client {
                             Ok(_) => {
                                 debug!("Already downloaded {}", digest_hash);
                                 if let Some(send) = &sender {
-                                    send.send(s as u64).unwrap();
+                                    if let Err(e) = send.send(s as u64) {
+                                        return Err(e.into());
+                                    };
                                 };
                                 return Ok(target);
                             }
@@ -247,7 +251,9 @@ impl Client {
                     match std::fs::metadata(&target.as_path()) {
                         Ok(metadata) => {
                             if let Some(send) = &sender {
-                                send.send(metadata.size()).unwrap();
+                                if let Err(e) = send.send(metadata.size()) {
+                                    return Err(e.into());
+                                };
                             };
                             OpenOptions::new()
                                 .append(true)
@@ -273,7 +279,9 @@ impl Client {
                 Ok(size) => {
                     if size > 0 {
                         if let Some(send) = &sender {
-                            send.send(size as u64).unwrap();
+                            if let Err(e) = send.send(size as u64) {
+                                return Err(e.into());
+                            };
                         };
                         len += size;
                         Digest::update(&mut hash, &buffer[0..size]);
