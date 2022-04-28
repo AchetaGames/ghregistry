@@ -15,6 +15,8 @@ pub enum Error {
     Uri(#[from] url::ParseError),
     #[error("IO error")]
     IO(#[from] std::io::Error),
+    #[error("SenderError")]
+    Sender(#[from] std::sync::mpsc::SendError<u64>),
     #[error("input is not UTF-8")]
     Utf8Parse(#[from] std::string::FromUtf8Error),
     #[error("strum error")]
